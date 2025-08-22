@@ -1,1 +1,2 @@
-body{font:16px/1.5 system-ui;margin:0;background:#0c0e11;color:#e6eaf2} .container{max-width:1100px;margin:0 auto;padding:16px} a{color:#7cc4ff} .card{background:#131720;border:1px solid #232a36;border-radius:16px;padding:16px;margin:14px 0} .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.row{grid-column:1/-1} table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid #232a36} .kv{list-style:none;padding:0} .kv li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #232a36}
+/* style.css */
+/* světlejší, čistý design */
