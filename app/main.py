@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, UploadFile, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,11 +8,11 @@ from pathlib import Path
 from datetime import datetime, date
 import csv, io, uuid, zipfile, os
 
-# Optional imports for remote storage / HTTP fetches
+# volitelné (kvůli stáhnutí GPX z URL / R2)
 try:
     import requests  # type: ignore
 except Exception:
-    requests = None  # we'll fallback to urllib
+    requests = None
 import urllib.request
 
 try:
@@ -29,13 +28,13 @@ from .db import init_db, get_session
 from .models import Horse, Ride
 from .metrics import parse_gpx_points, compute_metrics
 
-# ---------------- Persistent storage paths ----------------
 app = FastAPI(title="GPX Analyzer – Horse Dashboard")
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = (Path("/data/gpx") if Path("/data").exists() else BASE_DIR / "data" / "gpx")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# --------------- Optional Cloudflare R2 config --------------
+# --- volitelná podpora Cloudflare R2 (když nevyplníš envy, ukládá se na disk) ---
 R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID")
 R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
 R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
@@ -56,7 +55,7 @@ def r2_client():
         region_name="auto",
     )
 
-# ------------------- Static/Template mounts ----------------
+# static & templates
 app.mount("/static", StaticFiles(directory=str((Path(__file__).parent / "static").resolve())), name="static")
 templates = Jinja2Templates(directory=str((Path(__file__).parent / "templates").resolve()))
 
@@ -64,7 +63,7 @@ templates = Jinja2Templates(directory=str((Path(__file__).parent / "templates").
 def on_startup():
     init_db()
 
-# ---------------------- Helpers ----------------------------
+# ---------- helpers ----------
 def accum_periods(rides):
     monthly, weekly, yearly = {}, {}, {}
     for r in rides:
@@ -79,7 +78,7 @@ def accum_periods(rides):
         return [{"period":k,"rides":v["rides"],"km":round(v["km"],2),"avg_kmh":round(v["avg_sum"]/v["rides"],2)} for k,v in sorted(bucket.items(), reverse=True)]
     return rows(monthly), rows(weekly), rows(yearly)
 
-# ---------------------- Routes -----------------------------
+# ---------- routes ----------
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     with get_session() as s:
@@ -106,7 +105,7 @@ async def upload_gpx(
     contents = await file.read()
     uid = uuid.uuid4().hex
 
-    # store either to R2 (if configured) or local disk (/data)
+    # uložení na R2 nebo do /data/gpx
     r2 = r2_client()
     if r2:
         key = f"{uid}.gpx"
@@ -117,7 +116,7 @@ async def upload_gpx(
         dest.write_bytes(contents)
         gpx_ref = str(dest)
 
-    # compute metrics to fill ride fields
+    # výpočet metrik
     pts = parse_gpx_points(contents.decode("utf-8", errors="ignore"))
     metrics = compute_metrics(pts)
 
@@ -159,20 +158,20 @@ def ride_detail(request: Request, ride_id: int):
         if not ride:
             return HTMLResponse("Ride not found", status_code=404)
 
-    # load GPX text no matter if local or URL
+    # načtení GPX (disk/URL/R2)
     p = Path(ride.gpx_path)
     missing_gpx, text = False, None
     if ride.gpx_path.startswith("http"):
-        if requests is not None:
-            resp = requests.get(ride.gpx_path, timeout=20)
-            if resp.ok: text = resp.text
-            else: missing_gpx = True
-        else:
-            try:
+        try:
+            if requests is not None:
+                resp = requests.get(ride.gpx_path, timeout=20)
+                if resp.ok: text = resp.text
+                else: missing_gpx = True
+            else:
                 with urllib.request.urlopen(ride.gpx_path, timeout=20) as f:
                     text = f.read().decode("utf-8", errors="ignore")
-            except Exception:
-                missing_gpx = True
+        except Exception:
+            missing_gpx = True
     elif ride.gpx_path.startswith("s3://"):
         r2 = r2_client()
         if r2:
@@ -183,10 +182,8 @@ def ride_detail(request: Request, ride_id: int):
         else:
             missing_gpx = True
     else:
-        if p.exists():
-            text = p.read_text(encoding="utf-8", errors="ignore")
-        else:
-            missing_gpx = True
+        if p.exists(): text = p.read_text(encoding="utf-8", errors="ignore")
+        else: missing_gpx = True
 
     speed_ts, elev_profile, coords = [], [], []
     if not missing_gpx and text:
@@ -212,7 +209,6 @@ def delete_ride(ride_id: int):
         ride = s.get(Ride, ride_id)
         if not ride:
             raise HTTPException(status_code=404, detail="Jízda nenalezena")
-        # try delete local file
         try:
             if ride.gpx_path and ride.gpx_path.startswith("/"):
                 p = Path(ride.gpx_path)
@@ -270,7 +266,14 @@ def horse_detail(request: Request, horse_id: int):
         "top_long": top_long, "top_fast": top_fast, "top_climb": top_climb
     })
 
-# ---- Horses management ----
+# ---- KONĚ (správa) ----
+
+def _to_float_or_none(val: str | None) -> float | None:
+    if val is None:
+        return None
+    s = str(val).strip().replace(",", ".")
+    return float(s) if s else None
+
 @app.get("/horses", response_class=HTMLResponse)
 def horses_page(request: Request):
     with get_session() as s:
@@ -287,16 +290,20 @@ def create_horse(name: str = Form(...), notes: str = Form(default="")):
     return RedirectResponse("/horses", status_code=303)
 
 @app.post("/horse/{horse_id}/update")
-def update_horse(horse_id: int, name: str = Form(...), notes: str = Form(default=""),
-                 walk_trot_kmh: float | None = Form(default=None),
-                 trot_canter_kmh: float | None = Form(default=None)):
+def update_horse(
+    horse_id: int,
+    name: str = Form(...),
+    notes: str | None = Form(default=None),
+    walk_trot_kmh: str | None = Form(default=None),
+    trot_canter_kmh: str | None = Form(default=None),
+):
     with get_session() as s:
         h = s.get(Horse, horse_id)
         if not h: raise HTTPException(404, "Kůň nenalezen")
         h.name = name.strip()
-        h.notes = notes.strip() or None
-        h.walk_trot_kmh = walk_trot_kmh
-        h.trot_canter_kmh = trot_canter_kmh
+        h.notes = (notes or "").strip() or None
+        h.walk_trot_kmh = _to_float_or_none(walk_trot_kmh)
+        h.trot_canter_kmh = _to_float_or_none(trot_canter_kmh)
         s.add(h); s.commit()
     return RedirectResponse("/horses", status_code=303)
 
