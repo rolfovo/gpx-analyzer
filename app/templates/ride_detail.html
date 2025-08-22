@@ -11,7 +11,8 @@
   </ul>
   <div style="margin-top:8px;display:flex;gap:8px;">
     <a class="button" href="/gpx/{{ ride.id }}">Stáhnout GPX</a>
-    <form action="/ride/{{ ride.id }}/delete" method="post" onsubmit="return confirm('Opravdu smazat tuto jízdu?')">
+    <form action="/ride/{{ ride.id }}/delete" method="post"
+          onsubmit="return confirm('Opravdu smazat tuto jízdu?')">
       <button class="button danger" type="submit">🗑 Smazat jízdu</button>
     </form>
   </div>
@@ -19,7 +20,7 @@
 
 {% if missing_gpx %}
 <section class="card">
-  <div class="alert">⚠️ GPX soubor k této jízdě není k dispozici (po redeployi/free instanci). Mapa a grafy nejdou zobrazit. Nahrajte GPX znovu.</div>
+  <div class="alert">⚠️ GPX soubor k této jízdě není k dispozici. Nahrajte jej znovu, aby šly zobrazit mapa a grafy.</div>
 </section>
 {% else %}
 <section class="card">
@@ -46,8 +47,10 @@ if (coords.length){
   map.fitBounds(line.getBounds());
 }
 
-Plotly.newPlot('chart_speed',[{x: speed.map(p=>p.t), y: speed.map(p=>p.v), type:'scatter', mode:'lines'}],{title:'Rychlost v čase (km/h)', margin:{t:30}});
-Plotly.newPlot('chart_elev',[{x: elev.map(p=>p.d), y: elev.map(p=>p.e), type:'scatter', mode:'lines'}],{title:'Profil trati (km / m)', xaxis:{title:'Km'}, yaxis:{title:'m n. m.'}, margin:{t:30}});
+Plotly.newPlot('chart_speed',[{x: speed.map(p=>p.t), y: speed.map(p=>p.v), type:'scatter', mode:'lines'}],
+  {title:'Rychlost v čase (km/h)', margin:{t:30}});
+Plotly.newPlot('chart_elev',[{x: elev.map(p=>p.d), y: elev.map(p=>p.e), type:'scatter', mode:'lines'}],
+  {title:'Profil trati (km / m)', xaxis:{title:'Km'}, yaxis:{title:'m n. m.'}, margin:{t:30}});
 </script>
 {% endif %}
 {% endblock %}
