@@ -23,7 +23,7 @@ input:focus,select:focus{outline:2px solid rgba(45,126,247,.25);border-color:var
 button{cursor:pointer;background:var(--primary);color:#fff;border-color:transparent}
 button:hover{filter:brightness(.95)}
 .button{display:inline-block;padding:8px 12px;border-radius:10px;background:#eef4ff;border:1px solid #cfe0ff;color:#1c4fd3}
-.button.danger, button.danger{background: #feecec;border-color:#f3b9b9;color:var(--danger)}
+.button.danger, button.danger{background:#feecec;border-color:#f3b9b9;color:var(--danger)}
 .kv{list-style:none;margin:0;padding:0}
 .kv li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border)}
 .alert{background:#fff6db;border:1px solid #ffe6a7;border-radius:10px;padding:10px;margin:10px 0}
