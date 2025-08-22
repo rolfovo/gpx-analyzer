@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>GPX Analyzer</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   </head>
   <body>
     <header class="container">
       <h1>🐎 GPX Analyzer</h1>
-      <nav><a href="/">Přehled</a> · <a href="/horses">Koně & prahy</a> · <a href="/export/csv">Export CSV</a></nav>
+      <nav><a href="/">Přehled</a> · <a href="/backup.zip">Záloha (ZIP)</a></nav>
     </header>
     <main class="container">{% block content %}{% endblock %}</main>
-    <footer class="container small"><p>MVP • FastAPI • {{ now().year }}</p></footer>
   </body>
 </html>

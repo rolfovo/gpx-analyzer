@@ -2,59 +2,73 @@
 {% block content %}
 <section class="card">
   <h2>Kůň: {{ horse.name }}</h2>
-  <div class="stats">
-    <div class="stat"><span>Jízd celkem</span><strong>{{ rides|length }}</strong></div>
-    <div class="stat"><span>Najeto</span><strong>{{ '%.2f' % total_km }} km</strong></div>
-    <div class="stat"><span>Ø rychlost</span><strong>{{ '%.2f' % avg_kmh }} km/h</strong></div>
-  </div>
-  <p><a class="button" href="/export/horse/{{ horse.id }}.csv">Export CSV pro {{ horse.name }}</a></p>
+  <p><a class="button" href="/export/horse/{{ horse.id }}.csv">Export CSV</a></p>
 </section>
 
 <section class="card">
-  <h3>Souhrny pro {{ horse.name }}</h3>
+  <h3>Souhrn podle chodů (hranice {{ '%.1f' % thrA }} / {{ '%.1f' % thrB }} km/h)</h3>
+  <table>
+    <thead><tr><th>Chod</th><th>Km</th><th>Podíl</th></tr></thead>
+    {% set total = gaits.total_km or 0.0001 %}
+    <tbody>
+      <tr><td>Chůze</td><td>{{ '%.2f' % gaits.walk_km }}</td><td>{{ '%.0f' % (gaits.walk_km/total*100) }}%</td></tr>
+      <tr><td>Klus</td><td>{{ '%.2f' % gaits.trot_km }}</td><td>{{ '%.0f' % (gaits.trot_km/total*100) }}%</td></tr>
+      <tr><td>Cval</td><td>{{ '%.2f' % gaits.canter_km }}</td><td>{{ '%.0f' % (gaits.canter_km/total*100) }}%</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h3>Grafy</h3>
+  <div id="chart_km_month"></div>
+  <div id="chart_avg_month"></div>
+  <div id="chart_km_year"></div>
+</section>
+
+<section class="card">
+  <h3>Top jízdy</h3>
+  <div class="grid">
+    <div class="row"><h4>Nejdelší</h4>
+      <ol>{% for r in top_long %}<li>{{ r.ride_date }} – {{ '%.2f' % r.distance_km }} km (<a href="/ride/{{ r.id }}">detail</a>)</li>{% endfor %}</ol>
+    </div>
+    <div class="row"><h4>Nejrychlejší (max)</h4>
+      <ol>{% for r in top_fast %}<li>{{ r.ride_date }} – {{ '%.2f' % r.max_speed_kmh }} km/h (<a href="/ride/{{ r.id }}">detail</a>)</li>{% endfor %}</ol>
+    </div>
+    <div class="row"><h4>Největší převýšení</h4>
+      <ol>{% for r in top_climb %}<li>{{ r.ride_date }} – ↑ {{ '%.0f' % r.ascent_m }} m (<a href="/ride/{{ r.id }}">detail</a>)</li>{% endfor %}</ol>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Souhrny (měsíční/týdenní/roční)</h3>
   <div class="grid">
     <div class="row">
       <h4>Měsíční</h4>
-      {% if monthly %}
       <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
       <tbody>{% for m in monthly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-      {% else %}<p>—</p>{% endif %}
     </div>
     <div class="row">
       <h4>Týdenní</h4>
-      {% if weekly %}
       <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
       <tbody>{% for m in weekly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-      {% else %}<p>—</p>{% endif %}
     </div>
     <div class="row">
       <h4>Roční</h4>
-      {% if yearly %}
       <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
       <tbody>{% for m in yearly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-      {% else %}<p>—</p>{% endif %}
     </div>
   </div>
 </section>
 
-<section class="card">
-  <h3>Jízdy koně ({{ rides|length }})</h3>
-  {% if rides %}
-  <table>
-    <thead><tr><th>Datum</th><th>Název</th><th>Vzd. (km)</th><th>Ø (km/h)</th><th>Max (km/h)</th><th>↑/↓ (m)</th></tr></thead>
-    <tbody>
-      {% for r in rides %}
-      <tr>
-        <td>{{ r.ride_date }}</td>
-        <td><a href="/ride/{{ r.id }}">{{ r.title or ('Jízda #'+r.id|string) }}</a></td>
-        <td>{{ '%.2f' % r.distance_km }}</td>
-        <td>{{ '%.2f' % r.avg_speed_kmh }}</td>
-        <td>{{ '%.2f' % r.max_speed_kmh }}</td>
-        <td>{{ '%.0f' % r.ascent_m }}/{{ '%.0f' % r.descent_m }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<p>Žádné jízdy.</p>{% endif %}
-</section>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+const kmMonth = {{ km_month | tojson }};
+const kmYear = {{ km_year | tojson }};
+const avgMonth = {{ avg_month | tojson }};
+
+Plotly.newPlot('chart_km_month',[{x: kmMonth.map(r=>r.period), y: kmMonth.map(r=>r.km), type:'bar'}],{title:'Kilometry za měsíc', margin:{t:30}});
+Plotly.newPlot('chart_avg_month',[{x: avgMonth.map(r=>r.period), y: avgMonth.map(r=>r.avg), type:'scatter', mode:'lines+markers'}],{title:'Průměrná rychlost za měsíc', margin:{t:30}});
+Plotly.newPlot('chart_km_year',[{x: kmYear.map(r=>r.period), y: kmYear.map(r=>r.km), type:'bar'}],{title:'Kilometry za rok', margin:{t:30}});
+</script>
 {% endblock %}
