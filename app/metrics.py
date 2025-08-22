@@ -34,8 +34,8 @@ class Metrics:
     max_elev_m: Optional[float]
     start_time: Optional[datetime]
     end_time: Optional[datetime]
-    speed_series: List[Tuple[datetime, float]]  # (timestamp, m/s)
-    elev_profile: List[Tuple[float, float]]     # (distance_m, elevation_m)
+    speed_series: List[Tuple[datetime, float]]
+    elev_profile: List[Tuple[float, float]]
 
 def parse_gpx_points(gpx_text: str) -> List[Point]:
     gpx = gpxpy.parse(gpx_text)

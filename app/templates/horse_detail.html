@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Kůň: {{ horse.name }}</h2>
+  <div class="stats">
+    <div class="stat"><span>Jízd celkem</span><strong>{{ rides|length }}</strong></div>
+    <div class="stat"><span>Najeto</span><strong>{{ '%.2f' % total_km }} km</strong></div>
+    <div class="stat"><span>Ø rychlost</span><strong>{{ '%.2f' % avg_kmh }} km/h</strong></div>
+  </div>
+  <p><a class="button" href="/export/horse/{{ horse.id }}.csv">Export CSV pro {{ horse.name }}</a></p>
+</section>
+
+<section class="card">
+  <h3>Souhrny pro {{ horse.name }}</h3>
+  <div class="grid">
+    <div class="row">
+      <h4>Měsíční</h4>
+      {% if monthly %}
+      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
+      <tbody>{% for m in monthly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
+      {% else %}<p>—</p>{% endif %}
+    </div>
+    <div class="row">
+      <h4>Týdenní</h4>
+      {% if weekly %}
+      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
+      <tbody>{% for m in weekly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
+      {% else %}<p>—</p>{% endif %}
+    </div>
+    <div class="row">
+      <h4>Roční</h4>
+      {% if yearly %}
+      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
+      <tbody>{% for m in yearly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
+      {% else %}<p>—</p>{% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Jízdy koně ({{ rides|length }})</h3>
+  {% if rides %}
+  <table>
+    <thead><tr><th>Datum</th><th>Název</th><th>Vzd. (km)</th><th>Ø (km/h)</th><th>Max (km/h)</th><th>↑/↓ (m)</th></tr></thead>
+    <tbody>
+      {% for r in rides %}
+      <tr>
+        <td>{{ r.ride_date }}</td>
+        <td><a href="/ride/{{ r.id }}">{{ r.title or ('Jízda #'+r.id|string) }}</a></td>
+        <td>{{ '%.2f' % r.distance_km }}</td>
+        <td>{{ '%.2f' % r.avg_speed_kmh }}</td>
+        <td>{{ '%.2f' % r.max_speed_kmh }}</td>
+        <td>{{ '%.0f' % r.ascent_m }}/{{ '%.0f' % r.descent_m }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>Žádné jízdy.</p>{% endif %}
+</section>
+{% endblock %}

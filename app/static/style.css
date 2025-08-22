@@ -8,26 +8,19 @@ h1{ font-size:28px; margin:0 0 8px; }
 h2{ margin:0 0 12px; }
 h3{ margin-top:0; }
 .card{ background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; margin:14px 0; box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
-.grid{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:12px; }
+.grid{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px; }
 .grid-2{ display:grid; grid-template-columns: 1.2fr 0.8fr; gap:12px; }
 .row{ grid-column: 1 / -1; }
 label{ display:block; font-size:14px; color:var(--muted); margin-bottom:6px; }
-input[type="text"], input[type="date"], input[type="file"], select, input[type="number"]{ width:100%; padding:10px 12px; background:#0e121a; color:var(--text); border:1px solid var(--border); border-radius:10px; }
+input[type="text"], input[type="date"], input[type="file"], input[type="number"], select{ width:100%; padding:10px 12px; background:#0e121a; color:var(--text); border:1px solid var(--border); border-radius:10px; }
 button, .button{ display:inline-block; padding:10px 14px; background:var(--accent); color:#0b1018; border:none; border-radius:10px; font-weight:600; cursor:pointer; }
 .button.secondary{ background:transparent; color:var(--text); border:1px solid var(--border); }
 table{ width:100%; border-collapse:collapse; }
 th, td{ text-align:left; padding:10px 8px; border-bottom:1px solid var(--border); }
-.stats{ display:flex; gap:16px; margin-top:8px; }
+.stats{ display:flex; gap:16px; margin-top:8px; flex-wrap:wrap; }
 .stat{ background:#0e121a; border:1px solid var(--border); padding:10px 12px; border-radius:12px; }
 .stat span{ color:var(--muted); display:block; font-size:12px; }
 .kv{ list-style:none; margin:0; padding:0; }
 .kv li{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--border); }
 .kv li span{ color:var(--muted); }
 .small{ color:var(--muted); }
-
-.gauges{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-.gait-controls{ display:grid; grid-template-columns: 1fr 1fr auto; gap:12px; align-items:end; margin-bottom:10px; }
-.barrow{ display:grid; grid-template-columns: 120px 1fr auto; gap:10px; align-items:center; padding:6px 0; }
-.barwrap{ background:#0e121a; border:1px solid var(--border); border-radius:999px; overflow:hidden; height:12px; }
-.bar{ height:100%; }
-#elev_plot, #speed_plot, #gauge_avg, #gauge_max{ background:#0f1420; border:1px solid var(--border); border-radius:12px; }

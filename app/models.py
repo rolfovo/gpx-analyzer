@@ -6,7 +6,9 @@ class Horse(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True, unique=True)
     notes: Optional[str] = None
-    rides: List["Ride"] = Relationship(back_populates="horse")
+    walk_trot_kmh: Optional[float] = None
+    trot_canter_kmh: Optional[float] = None
+    rides: List['Ride'] = Relationship(back_populates='horse')
 
 class Ride(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -27,5 +29,5 @@ class Ride(SQLModel, table=True):
 
     gpx_path: str
 
-    horse_id: Optional[int] = Field(default=None, foreign_key="horse.id")
-    horse: Optional[Horse] = Relationship(back_populates="rides")
+    horse_id: Optional[int] = Field(default=None, foreign_key='horse.id')
+    horse: Optional[Horse] = Relationship(back_populates='rides')
