@@ -1,97 +1,86 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="ride-detail">
-  <h2>📊 Detail jízdy</h2>
+<section class="card">
+  <h2>{{ ride.title or ('Jízda #' ~ ride.id) }}</h2>
+  <div class="grid2">
+    <div><div class="muted">Datum</div><div><b>{{ ride.ride_date }}</b></div></div>
+    <div><div class="muted">Kůň</div><div><b>{{ horse.name if horse else '—' }}</b></div></div>
+    <div><div class="muted">Vzdálenost</div><div><b>{{ '%.2f' % ride.distance_km }} km</b></div></div>
+    <div><a href="/gpx/{{ ride.id }}">Stáhnout GPX</a></div>
+  </div>
+</section>
 
-  <div class="stats-grid">
-    <div class="card">
-      <h3>Celková doba trvání</h3>
-      <p>{{ total_time }}</p>
-    </div>
-    <div class="card">
-      <h3>Celková vzdálenost</h3>
-      <p>{{ total_distance_km }} km</p>
+{% if missing_gpx %}
+<section class="card"><div class="alert">⚠️ GPX k této jízdě není k dispozici.</div></section>
+{% else %}
+<section class="grid-2">
+  <div class="card">
+    <h3>Mapa (barva = rychlost)</h3>
+    <div id="gmap"></div>
+    <div class="legend muted">
+      <span class="chip" style="background:#3bbb3b"></span>0–10
+      <span class="chip" style="background:#9ad34b"></span>10–20
+      <span class="chip" style="background:#ffcc00"></span>20–30
+      <span class="chip" style="background:#ff6f3c"></span>30–35
+      <span class="chip" style="background:#c82333"></span>35+ km/h
     </div>
   </div>
-
-  <div class="card gauges">
+  <div class="card">
     <h3>Rychlost</h3>
-    <div class="gauge-container">
-      <div class="gauge">
-        <canvas id="avgSpeedGauge"></canvas>
-        <p>Průměrná rychlost<br>{{ avg_speed }} km/h</p>
-      </div>
-      <div class="gauge">
-        <canvas id="maxSpeedGauge"></canvas>
-        <p>Maximální rychlost<br>{{ max_speed }} km/h</p>
-      </div>
+    <div id="g_avg"></div>
+    <div id="g_max"></div>
+    <div class="muted">Prahy: {{ walk_trot }} / {{ trot_canter }} km/h</div>
+    <div style="margin-top:10px">
+      <div>Chůze</div><div class="bar-track"><div class="bar-fill walk" style="width: {{ gait.walk.pct }}%"></div></div>
+      <div class="muted">{{ '%.2f' % gait.walk.km }} km – {{ gait.walk.pct|round(0)|int }}%</div>
+      <div>Klus</div><div class="bar-track"><div class="bar-fill trot" style="width: {{ gait.trot.pct }}%"></div></div>
+      <div class="muted">{{ '%.2f' % gait.trot.km }} km – {{ gait.trot.pct|round(0)|int }}%</div>
+      <div>Cval</div><div class="bar-track"><div class="bar-fill canter" style="width: {{ gait.canter.pct }}%"></div></div>
+      <div class="muted">{{ '%.2f' % gait.canter.km }} km – {{ gait.canter.pct|round(0)|int }}%</div>
     </div>
   </div>
+</section>
 
+<section class="grid-2">
   <div class="card">
-    <h3>Vzdálenost podle chodu</h3>
-    <div class="bar-group">
-      <p>Chůze <span>{{ walk_km }} km – {{ walk_pct }}%</span></p>
-      <div class="bar"><div class="bar-inner walk" style="width: {{ walk_pct }}%"></div></div>
-      <p>Klus <span>{{ trot_km }} km – {{ trot_pct }}%</span></p>
-      <div class="bar"><div class="bar-inner trot" style="width: {{ trot_pct }}%"></div></div>
-      <p>Cval <span>{{ canter_km }} km – {{ canter_pct }}%</span></p>
-      <div class="bar"><div class="bar-inner canter" style="width: {{ canter_pct }}%"></div></div>
-    </div>
+    <h3>Rychlost v čase</h3>
+    <div id="chart_speed"></div>
   </div>
-
   <div class="card">
-    <h3>Analýza sklonu</h3>
-    <div class="bar-group">
-      <p>Rovina <span>{{ flat_km }} km – {{ flat_pct }}%</span></p>
-      <div class="bar"><div class="bar-inner flat" style="width: {{ flat_pct }}%"></div></div>
-      <p>Do kopce <span>{{ uphill_km }} km – {{ uphill_pct }}%</span></p>
-      <div class="bar"><div class="bar-inner uphill" style="width: {{ uphill_pct }}%"></div></div>
-      <p>Z kopce <span>{{ downhill_km }} km – {{ downhill_pct }}%</span></p>
-      <div class="bar"><div class="bar-inner downhill" style="width: {{ downhill_pct }}%"></div></div>
-    </div>
+    <h3>Profil trati</h3>
+    <div id="chart_elev"></div>
   </div>
-
-  <div class="card">
-    <h3>Mapa trasy</h3>
-    <div id="map" style="height:400px;"></div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+</section>
 
 <script>
-  // Leaflet mapa
-  var map = L.map('map').setView([{{ center_lat }}, {{ center_lon }}], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+const avgKmh = {{ ride.avg_speed_kmh or 0 }};
+const maxKmh = {{ ride.max_speed_kmh or 0 }};
+const coords = {{ coords_json | safe }};
+const segs   = {{ segments_json | safe }};
+const speed  = {{ speed_json | safe }};
+const elev   = {{ elev_json | safe }};
 
-  var coords = {{ coords|safe }};
-  var speeds = {{ speeds|safe }};
-  var segments = [];
-  for (var i=1; i<coords.length; i++) {
-    var speed = speeds[i] || 0;
-    var color = speed < {{ walk_trot_kmh }} ? 'green' : 
-                (speed < {{ trot_canter_kmh }} ? 'orange' : 'red');
-    segments.push(L.polyline([coords[i-1], coords[i]], {color: color, weight: 4}).addTo(map));
-  }
+function gauge(id, value, title){
+  Plotly.newPlot(id, [{
+    type:'indicator', mode:'gauge+number', value:value,
+    gauge:{axis:{range:[0, Math.max(30, Math.ceil((value||0)*1.2))]}, bar:{color:'#2d7ef7'}},
+    number:{suffix:' km/h'}, title:{text:title}
+  }], {margin:{t:10,b:0,l:10,r:10}, height:220});
+}
+gauge('g_avg', avgKmh, 'Průměrná rychlost');
+gauge('g_max', maxKmh, 'Maximální rychlost');
 
-  // Gauge charts
-  function renderGauge(id, value, max, color) {
-    new Chart(document.getElementById(id), {
-      type: 'doughnut',
-      data: {
-        datasets: [{
-          data: [value, max-value],
-          backgroundColor: [color, '#eee'],
-          borderWidth: 0
-        }]
-      },
-      options: {circumference: 180, rotation: 270, cutout: '70%', plugins: {legend:{display:false}}}
-    });
-  }
-  renderGauge('avgSpeedGauge', {{ avg_speed }}, 30, 'green');
-  renderGauge('maxSpeedGauge', {{ max_speed }}, 40, 'orange');
+const map = L.map('gmap'); 
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+if (coords.length){
+  const b = L.polyline(coords.map(c=>[c[0],c[1]]), {weight:0}).addTo(map).getBounds();
+  map.fitBounds(b);
+}
+function col(v){ if(v>=35) return '#c82333'; if(v>=30) return '#ff6f3c'; if(v>=20) return '#ffcc00'; if(v>=10) return '#9ad34b'; return '#3bbb3b'; }
+for (const s of segs){ L.polyline([[s.lat1,s.lon1],[s.lat2,s.lon2]], {color:col(s.v), weight:5, opacity:.9}).addTo(map); }
+
+Plotly.newPlot('chart_speed', [{x: speed.map(p=>p.t), y: speed.map(p=>p.v), type:'scatter', mode:'lines'}], {margin:{t:30}, title:'Rychlost (km/h)'});
+Plotly.newPlot('chart_elev', [{x: elev.map(p=>p.d), y: elev.map(p=>p.e), type:'scatter', mode:'lines'}], {margin:{t:30}, title:'Výškový profil (km / m)'});
 </script>
+{% endif %}
 {% endblock %}

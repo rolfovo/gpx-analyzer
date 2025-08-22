@@ -1,58 +1,36 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8">
-  <title>GPX Analyzer</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-<div class="container py-4">
-  <h1 class="mb-4">🐎 GPX Analyzer</h1>
-
-  <form action="/upload" method="post" enctype="multipart/form-data" class="card p-3 mb-4">
-    <div class="row g-3">
-      <div class="col-md-4">
-        <label class="form-label">Soubor GPX</label>
-        <input type="file" name="gpx_file" class="form-control" required>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Kůň</label>
-        <input type="text" name="horse" class="form-control">
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Název jízdy</label>
-        <input type="text" name="ride_name" class="form-control">
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">Datum</label>
-        <input type="date" name="ride_date" class="form-control">
-      </div>
-    </div>
-    <button class="btn btn-primary mt-3">Analyzovat & uložit</button>
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Nahrát GPX</h2>
+  <form class="grid2" action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".gpx" required>
+    <input type="text" name="horse_name" placeholder="Kůň (volitelné)">
+    <input type="text" name="ride_title" placeholder="Název jízdy (volitelné)">
+    <input type="date" name="ride_date">
+    <button>Analyzovat & uložit</button>
   </form>
-
-  <h3>Jízdy</h3>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>Datum</th><th>Název</th><th>Kůň</th><th>Km</th><th>Ø</th><th>Max</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for ride in rides %}
-      <tr>
-        <td>{{ ride.date }}</td>
-        <td>{{ ride.name }}</td>
-        <td>{{ ride.horse }}</td>
-        <td>{{ ride.distance }}</td>
-        <td>{{ ride.avg_speed }}</td>
-        <td>{{ ride.max_speed }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <a href="/backup" class="btn btn-outline-secondary">📦 Stáhnout zálohu (ZIP)</a>
-</div>
-</body>
-</html>
+</section>
+<section class="card">
+  <h2>Jízdy</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Datum</th><th>Název</th><th>Kůň</th><th>Km</th><th>Ø</th><th>Max</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rides %}
+        <tr>
+          <td>{{ r.ride_date }}</td>
+          <td><a href="/ride/{{ r.id }}">{{ r.title or ('Jízda #' ~ r.id) }}</a></td>
+          <td>{{ r.horse.name if r.horse else '—' }}</td>
+          <td>{{ '%.2f' % r.distance_km }}</td>
+          <td>{{ '%.2f' % r.avg_speed_kmh }}</td>
+          <td>{{ '%.2f' % r.max_speed_kmh }}</td>
+          <td><a href="/gpx/{{ r.id }}">GPX</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">Zatím žádné jízdy.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

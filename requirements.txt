@@ -5,3 +5,4 @@ python-multipart==0.0.9
 gpxpy==1.6.2
 sqlmodel==0.0.21
 psycopg[binary]==3.2.9
+requests==2.32.3
