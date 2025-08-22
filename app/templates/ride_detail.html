@@ -1,2 +1,53 @@
-<!-- ride_detail.html -->
-<!-- tlačítko mazat jízdu + hláška pro chybějící GPX -->
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>{{ ride.title or 'Jízda #' ~ ride.id }}</h2>
+  <p>{% if horse %}Kůň: <a href="/horse/{{ horse.id }}">{{ horse.name }}</a>{% endif %}</p>
+  <ul class="kv">
+    <li><span>Datum</span><strong>{{ ride.ride_date }}</strong></li>
+    <li><span>Vzdálenost</span><strong>{{ '%.2f' % ride.distance_km }} km</strong></li>
+    <li><span>Ø rychlost</span><strong>{{ '%.2f' % ride.avg_speed_kmh }} km/h</strong></li>
+    <li><span>Max rychlost</span><strong>{{ '%.2f' % ride.max_speed_kmh }} km/h</strong></li>
+  </ul>
+  <div style="margin-top:8px;display:flex;gap:8px;">
+    <a class="button" href="/gpx/{{ ride.id }}">Stáhnout GPX</a>
+    <form action="/ride/{{ ride.id }}/delete" method="post" onsubmit="return confirm('Opravdu smazat tuto jízdu?')">
+      <button class="button danger" type="submit">🗑 Smazat jízdu</button>
+    </form>
+  </div>
+</section>
+
+{% if missing_gpx %}
+<section class="card">
+  <div class="alert">⚠️ GPX soubor k této jízdě není k dispozici (po redeployi/free instanci). Mapa a grafy nejdou zobrazit. Nahrajte GPX znovu.</div>
+</section>
+{% else %}
+<section class="card">
+  <h3>Mapa</h3>
+  <div id="map" style="height:400px;"></div>
+</section>
+
+<section class="card">
+  <h3>Grafy</h3>
+  <div id="chart_speed"></div>
+  <div id="chart_elev"></div>
+</section>
+
+<script>
+const coords = {{ coords | tojson }};
+const speed = {{ speed_ts | tojson }};
+const elev = {{ elev_profile | tojson }};
+
+const map = L.map('map');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OSM'}).addTo(map);
+if (coords.length){
+  const latlngs = coords.map(c => [c[0], c[1]]);
+  const line = L.polyline(latlngs, {weight:4}).addTo(map);
+  map.fitBounds(line.getBounds());
+}
+
+Plotly.newPlot('chart_speed',[{x: speed.map(p=>p.t), y: speed.map(p=>p.v), type:'scatter', mode:'lines'}],{title:'Rychlost v čase (km/h)', margin:{t:30}});
+Plotly.newPlot('chart_elev',[{x: elev.map(p=>p.d), y: elev.map(p=>p.e), type:'scatter', mode:'lines'}],{title:'Profil trati (km / m)', xaxis:{title:'Km'}, yaxis:{title:'m n. m.'}, margin:{t:30}});
+</script>
+{% endif %}
+{% endblock %}

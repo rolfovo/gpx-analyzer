@@ -1,2 +1,25 @@
-<!-- base.html -->
-<!-- světlé UI + odkaz na Koně -->
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GPX Analyzer</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="container" style="display:flex;justify-content:space-between;align-items:center;">
+        <h1>🐎 GPX Analyzer</h1>
+        <nav>
+          <a href="/">Přehled</a> ·
+          <a href="/horses">Koně</a> ·
+          <a href="/backup.zip">Záloha (ZIP)</a>
+        </nav>
+      </div>
+    </header>
+    <main class="container">{% block content %}{% endblock %}</main>
+  </body>
+</html>
