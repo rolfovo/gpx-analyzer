@@ -17,11 +17,12 @@ class Ride(SQLModel, table=True):
     horse_id: Optional[int] = Field(default=None, foreign_key="horse.id")
     horse: Optional[Horse] = Relationship(back_populates='rides')
 
-    # metrics
+    # metrics (NOT NULL where DB expects it)
     distance_km: float = 0.0
     total_time_s: int = 0
-    moving_time_s: int = Field(default=0, nullable=False)  # NEW: keeps DB happy
+    moving_time_s: int = Field(default=0, nullable=False)
     avg_speed_kmh: float = 0.0
+    avg_moving_speed_kmh: float = Field(default=0.0, nullable=False)
     max_speed_kmh: float = 0.0
     ascent_m: float = 0.0
     descent_m: float = 0.0

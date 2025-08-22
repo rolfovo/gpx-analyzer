@@ -55,19 +55,37 @@ async def upload(file: UploadFile, horse_name: str = Form(default=""), ride_titl
             if not horse:
                 horse = Horse(name=horse_name.strip()); s.add(horse); s.commit(); s.refresh(horse)
         rd = date.fromisoformat(ride_date) if ride_date else (m.start_time or datetime.utcnow()).date()
+
+        distance_km = round(m.distance_m/1000, 3)
+        total_time_s = int(m.total_time_s or 0)
+        moving_time_s = int(getattr(m, "moving_time_s", 0) or total_time_s)
+        avg_speed_kmh = round(m.avg_speed_mps * 3.6, 2)
+        max_speed_kmh = round(m.max_speed_mps * 3.6, 2)
+        ascent_m = round(m.ascent_m, 1)
+        descent_m = round(m.descent_m, 1)
+        min_elev_m = m.min_elev_m
+        max_elev_m = m.max_elev_m
+
+        # NEW: avg_moving_speed_kmh (NOT NULL in DB)
+        if moving_time_s > 0:
+            avg_moving_speed_kmh = round(distance_km / (moving_time_s / 3600.0), 2)
+        else:
+            avg_moving_speed_kmh = 0.0
+
         r = Ride(
             title=ride_title or file.filename,
             ride_date=rd,
             horse_id=horse.id if horse else None,
-            distance_km=round(m.distance_m/1000,3),
-            total_time_s=m.total_time_s,
-            moving_time_s=(getattr(m,'moving_time_s', None) or m.total_time_s),
-            avg_speed_kmh=round(m.avg_speed_mps*3.6,2),
-            max_speed_kmh=round(m.max_speed_mps*3.6,2),
-            ascent_m=round(m.ascent_m,1),
-            descent_m=round(m.descent_m,1),
-            min_elev_m=m.min_elev_m,
-            max_elev_m=m.max_elev_m,
+            distance_km=distance_km,
+            total_time_s=total_time_s,
+            moving_time_s=moving_time_s,
+            avg_speed_kmh=avg_speed_kmh,
+            avg_moving_speed_kmh=avg_moving_speed_kmh,  # <- HERE
+            max_speed_kmh=max_speed_kmh,
+            ascent_m=ascent_m,
+            descent_m=descent_m,
+            min_elev_m=min_elev_m,
+            max_elev_m=max_elev_m,
             gpx_path=str(dest)
         )
         s.add(r); s.commit(); s.refresh(r)
@@ -99,39 +117,48 @@ def ride_detail(request: Request, ride_id: int):
     gait = {"walk":{"km":0,"pct":0},"trot":{"km":0,"pct":0},"canter":{"km":0,"pct":0}}
 
     if not missing_gpx:
+        from .metrics import parse_gpx_points, compute_metrics, hav_m
+        import gpxpy
         text = p.read_text(encoding="utf-8", errors="ignore")
-        pts = parse_gpx_points(text)
-        # coords
-        coords = [[pt.lat, pt.lon] for pt in pts]
-        coords_json = json.dumps(coords)
-        # segments w/ speed
+        g = gpxpy.parse(text)
+
+        coords = []
         segs = []
-        walk_km=trot_km=canter_km=0.0
-        for a,b in zip(pts, pts[1:]):
-            dt = max((b.time - a.time).total_seconds(), 1e-6)
-            dist = max(0.0, b.dist_m_from_start - a.dist_m_from_start)
-            v = (dist/dt)*3.6
-            segs.append({"lat1":a.lat,"lon1":a.lon,"lat2":b.lat,"lon2":b.lon,"v":v})
-            if v < walk_trot: walk_km += dist/1000.0
-            elif v < trot_canter: trot_km += dist/1000.0
-            else: canter_km += dist/1000.0
-        total_km = (walk_km+trot_km+canter_km) or 1e-9
+        walk_km = trot_km = canter_km = 0.0
+        for trk in g.tracks:
+            for seg in trk.segments:
+                ps = seg.points
+                if len(ps) < 2: 
+                    continue
+                coords.extend([[q.latitude, q.longitude, q.elevation or 0.0] for q in ps])
+                for i in range(1, len(ps)):
+                    a, b = ps[i-1], ps[i]
+                    dt = (b.time - a.time).total_seconds() if (a.time and b.time) else 1.0
+                    if dt <= 0: dt = 1.0
+                    # jednoduchá vzdálenost
+                    from .metrics import hav_m
+                    d = hav_m(a.latitude, a.longitude, b.latitude, b.longitude)
+                    v = (d / dt) * 3.6
+                    segs.append({"lat1": a.latitude, "lon1": a.longitude, "lat2": b.latitude, "lon2": b.longitude, "v": v})
+                    if v < walk_trot: walk_km += d/1000.0
+                    elif v < trot_canter: trot_km += d/1000.0
+                    else: canter_km += d/1000.0
+
+        total_km = (walk_km + trot_km + canter_km) or 1e-9
         gait = {
-            "walk":{"km":walk_km, "pct":round(100*walk_km/total_km,2)},
-            "trot":{"km":trot_km, "pct":round(100*trot_km/total_km,2)},
-            "canter":{"km":canter_km, "pct":round(100*canter_km/total_km,2)},
+            "walk": {"km": round(walk_km,2), "pct": round(100*walk_km/total_km, 2)},
+            "trot": {"km": round(trot_km,2), "pct": round(100*trot_km/total_km, 2)},
+            "canter": {"km": round(canter_km,2), "pct": round(100*canter_km/total_km, 2)},
         }
+        coords_json = json.dumps([[c[0], c[1]] for c in coords])
         segments_json = json.dumps(segs)
-        # speed series
-        sp = []; d0 = pts[0].time if pts else None
-        for pt in pts:
-            t = (pt.time - d0).total_seconds()/60.0 if d0 else 0.0
-            sp.append({"t": round(t,2), "v": (pt.speed_mps or 0)*3.6})
+
+        # rychlost a profil znovu spočítáme
+        pts = parse_gpx_points(text)
+        m = compute_metrics(pts)
+        sp = [{"t": (t.isoformat() if t else None), "v": v*3.6} for t,v in m.speed_series]
+        ev = [{"d": round(d/1000.0,3), "e": e} for d,e in m.elev_profile]
         speed_json = json.dumps(sp)
-        # elevation series
-        ev = []; d0m=pts[0].dist_m_from_start if pts else 0.0
-        for pt in pts:
-            ev.append({"d": round((pt.dist_m_from_start-d0m)/1000.0,2), "e": pt.elev})
         elev_json = json.dumps(ev)
 
     return templates.TemplateResponse("ride_detail.html", {
@@ -189,7 +216,6 @@ def horse_delete(horse_id: int):
         h = s.get(Horse, horse_id)
         if not h: raise HTTPException(404, "Kůň nenalezen")
         # odpojit jízdy, nesmazat
-        s.exec(select(Ride).where(Ride.horse_id==horse_id))
         rides = s.exec(select(Ride).where(Ride.horse_id==horse_id)).all()
         for r in rides:
             r.horse_id = None; s.add(r)
