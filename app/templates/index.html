@@ -4,31 +4,32 @@
   <h2>Nahrát GPX</h2>
   <form action="/upload" method="post" enctype="multipart/form-data" class="grid">
     <div><label>Soubor GPX</label><input type="file" name="file" accept=".gpx" required></div>
-    <div><label>Kůň (volitelné)</label><input type="text" name="horse_name" list="horse_list" placeholder="např. Orin"><datalist id="horse_list">{% for h in horses %}<option value="{{ h.name }}">{% endfor %}</datalist></div>
-    <div><label>Název jízdy</label><input type="text" name="ride_title" placeholder="např. Sobota – Panský les"></div>
+    <div><label>Kůň (volitelné)</label><input type="text" name="horse_name" list="horse_list"><datalist id="horse_list">{% for h in horses %}<option value="{{ h.name }}">{% endfor %}</datalist></div>
+    <div><label>Název jízdy</label><input type="text" name="ride_title"></div>
     <div><label>Datum jízdy</label><input type="date" name="ride_date"></div>
     <div class="row"><button type="submit">Analyzovat & uložit</button></div>
   </form>
 </section>
 
 <section class="card">
-  <h2>Souhrny</h2>
-  <div class="grid">
-    <div class="row">
-      <h3>Měsíční</h3>
-      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
-      <tbody>{% for m in monthly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-    </div>
-    <div class="row">
-      <h3>Týdenní</h3>
-      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
-      <tbody>{% for m in weekly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-    </div>
-    <div class="row">
-      <h3>Roční</h3>
-      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
-      <tbody>{% for m in yearly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-    </div>
-  </div>
+  <h2>Jízdy ({{ rides|length }})</h2>
+  {% if rides %}
+  <table>
+    <thead><tr><th>Datum</th><th>Název</th><th>Kůň</th><th>Km</th><th>Ø</th><th>Max</th><th>↑/↓</th></tr></thead>
+    <tbody>
+      {% for r in rides %}
+      <tr>
+        <td>{{ r.ride_date }}</td>
+        <td><a href="/ride/{{ r.id }}">{{ r.title or 'Jízda #' ~ r.id }}</a></td>
+        <td>{% if r.horse %}<a href="/horse/{{ r.horse.id }}">{{ r.horse.name }}</a>{% else %}—{% endif %}</td>
+        <td>{{ '%.2f' % r.distance_km }}</td>
+        <td>{{ '%.2f' % r.avg_speed_kmh }}</td>
+        <td>{{ '%.2f' % r.max_speed_kmh }}</td>
+        <td>{{ '%.0f' % r.ascent_m }}/{{ '%.0f' % r.descent_m }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>Zatím žádné jízdy.</p>{% endif %}
 </section>
 {% endblock %}

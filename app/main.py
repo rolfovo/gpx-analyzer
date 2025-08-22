@@ -19,9 +19,6 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str((Path(__file__).parent / "static").resolve())), name="static")
 templates = Jinja2Templates(directory=str((Path(__file__).parent / "templates").resolve()))
 
-DEFAULT_WALK_TROT = 7.0
-DEFAULT_TROT_CANTER = 13.0
-
 @app.on_event("startup")
 def on_startup():
     init_db()
@@ -50,17 +47,12 @@ def accum_periods(rides):
     return rows(monthly), rows(weekly), rows(yearly)
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request, q_horse: str | None = None, q_from: str | None = None, q_to: str | None = None):
+def index(request: Request):
     with get_session() as s:
         horses = s.exec(select(Horse).order_by(Horse.name)).all()
-        stmt = apply_filters(select(Ride).order_by(Ride.ride_date.desc(), Ride.id.desc()), q_horse, q_from, q_to)
-        rides = s.exec(stmt).all()
-        total_km = round(sum(r.distance_km for r in rides), 2) if rides else 0.0
-        avg_kmh = round(sum(r.avg_speed_kmh for r in rides)/len(rides), 2) if rides else 0.0
+        rides = s.exec(select(Ride).order_by(Ride.ride_date.desc(), Ride.id.desc())).all()
         monthly_rows, weekly_rows, yearly_rows = accum_periods(rides)
     return templates.TemplateResponse("index.html", {"request": request, "horses": horses, "rides": rides,
-                                                     "q_horse": q_horse or "", "q_from": q_from or "", "q_to": q_to or "",
-                                                     "total_km": total_km, "avg_kmh": avg_kmh,
                                                      "monthly": monthly_rows, "weekly": weekly_rows, "yearly": yearly_rows})
 
 @app.post("/upload", response_class=HTMLResponse)
@@ -107,13 +99,29 @@ def ride_detail(request: Request, ride_id: int):
     with get_session() as s:
         ride = s.get(Ride, ride_id)
         if not ride: return HTMLResponse("Ride not found", status_code=404)
-        horses = s.exec(select(Horse).order_by(Horse.name)).all()
+        horse = s.get(Horse, ride.horse_id) if ride.horse_id else None
     text = Path(ride.gpx_path).read_text(encoding="utf-8", errors="ignore")
     pts = parse_gpx_points(text)
     metrics = compute_metrics(pts)
     speed_ts = [{"t": (t.isoformat() if t else None), "v": v*3.6} for t, v in metrics.speed_series]
     elev_profile = [{"d": d/1000.0, "e": e} for d, e in metrics.elev_profile]
-    return templates.TemplateResponse("ride_detail.html", {"request": request, "ride": ride, "horses": horses, "speed_ts": speed_ts, "elev_profile": elev_profile})
+    # Reconstruct lat/lon list for map
+    import gpxpy
+    gpx = gpxpy.parse(text)
+    coords = []
+    for trk in gpx.tracks:
+        for seg in trk.segments:
+            for p in seg.points:
+                coords.append([p.latitude, p.longitude, p.elevation if p.elevation is not None else 0])
+    return templates.TemplateResponse("ride_detail.html", {"request": request, "ride": ride, "horse": horse,
+                                                           "speed_ts": speed_ts, "elev_profile": elev_profile, "coords": coords})
+
+@app.get("/gpx/{ride_id}")
+def download_gpx(ride_id: int):
+    with get_session() as s:
+        ride = s.get(Ride, ride_id)
+        if not ride: return HTMLResponse("Ride not found", status_code=404)
+        return FileResponse(path=ride.gpx_path, filename=Path(ride.gpx_path).name, media_type="application/gpx+xml")
 
 @app.get("/horse/{horse_id}", response_class=HTMLResponse)
 def horse_detail(request: Request, horse_id: int):
@@ -122,53 +130,34 @@ def horse_detail(request: Request, horse_id: int):
         if not horse: return HTMLResponse("Kůň nenalezen", status_code=404)
         rides = s.exec(select(Ride).where(Ride.horse_id == horse_id).order_by(Ride.ride_date.desc())).all()
 
-    def gait_agg(thrA, thrB):
-        walk_m=trot_m=canter_m=0.0
+    def accum_periods(rides):
+        monthly, weekly, yearly = {}, {}, {}
         for r in rides:
-            try:
-                text = Path(r.gpx_path).read_text(encoding="utf-8", errors="ignore")
-                pts = parse_gpx_points(text)
-                m = compute_metrics(pts)
-                sp = [(t, v*3.6) for t,v in m.speed_series]
-                for i in range(1, len(sp)):
-                    t1,v = sp[i]; t0,_=sp[i-1]
-                    if not t0 or not t1: continue
-                    dt=(t1-t0).total_seconds(); 
-                    if dt<=0: continue
-                    dm = (v*1000/3600)*dt
-                    if v < thrA: walk_m += dm
-                    elif v < thrB: trot_m += dm
-                    else: canter_m += dm
-            except Exception:
-                continue
-        total_km = (walk_m+trot_m+canter_m)/1000.0
-        return {
-            "walk_km": round(walk_m/1000.0,2),
-            "trot_km": round(trot_m/1000.0,2),
-            "canter_km": round(canter_m/1000.0,2),
-            "total_km": round(total_km,2)
-        }
-
-    thrA = float(horse.walk_trot_kmh or 7.0)
-    thrB = float(horse.trot_canter_kmh or 13.0)
-    gaits = gait_agg(thrA, thrB)
-
-    top_long = sorted(rides, key=lambda r: r.distance_km, reverse=True)[:3]
-    top_fast = sorted(rides, key=lambda r: r.max_speed_kmh, reverse=True)[:3]
-    top_climb = sorted(rides, key=lambda r: r.ascent_m, reverse=True)[:3]
+            ym = r.ride_date.strftime("%Y-%m")
+            iso = r.ride_date.isocalendar()
+            yw = f"{iso[0]}-W{iso[1]:02d}"
+            yy = r.ride_date.strftime("%Y")
+            for bucket, key in ((monthly, ym),(weekly, yw),(yearly, yy)):
+                d = bucket.setdefault(key, {"km":0.0,"rides":0,"avg_sum":0.0})
+                d["km"] += r.distance_km; d["rides"] += 1; d["avg_sum"] += r.avg_speed_kmh
+        def rows(bucket):
+            return [{"period":k,"rides":v["rides"],"km":round(v["km"],2),"avg_kmh":round(v["avg_sum"]/v["rides"],2)} for k,v in sorted(bucket.items(), reverse=True)]
+        return rows(monthly), rows(weekly), rows(yearly)
 
     monthly_rows, weekly_rows, yearly_rows = accum_periods(rides)
     km_month = [{"period": m["period"], "km": m["km"]} for m in monthly_rows]
     km_year  = [{"period": y["period"], "km": y["km"]} for y in yearly_rows]
     avg_month = [{"period": m["period"], "avg": m["avg_kmh"]} for m in monthly_rows]
 
-    return templates.TemplateResponse("horse_detail.html", {
-        "request": request, "horse": horse, "rides": rides,
-        "gaits": gaits, "thrA": thrA, "thrB": thrB,
-        "top_long": top_long, "top_fast": top_fast, "top_climb": top_climb,
-        "monthly": monthly_rows, "weekly": weekly_rows, "yearly": yearly_rows,
-        "km_month": km_month, "km_year": km_year, "avg_month": avg_month
-    })
+    # top rides
+    top_long = sorted(rides, key=lambda r: r.distance_km, reverse=True)[:3]
+    top_fast = sorted(rides, key=lambda r: r.max_speed_kmh, reverse=True)[:3]
+    top_climb = sorted(rides, key=lambda r: r.ascent_m, reverse=True)[:3]
+
+    return templates.TemplateResponse("horse_detail.html", {"request": request, "horse": horse, "rides": rides,
+                                                            "monthly": monthly_rows, "weekly": weekly_rows, "yearly": yearly_rows,
+                                                            "km_month": km_month, "km_year": km_year, "avg_month": avg_month,
+                                                            "top_long": top_long, "top_fast": top_fast, "top_climb": top_climb})
 
 @app.get("/export/horse/{horse_id}.csv")
 def export_csv_horse(horse_id: int):
@@ -185,7 +174,6 @@ def export_csv_horse(horse_id: int):
 
 @app.get("/backup.zip")
 def backup_zip():
-    from .db import get_session
     with get_session() as s:
         horses = s.exec(select(Horse).order_by(Horse.id)).all()
         rides = s.exec(select(Ride).order_by(Ride.id)).all()
@@ -195,7 +183,6 @@ def backup_zip():
         w.writerow(["id","name","walk_trot_kmh","trot_canter_kmh","notes"])
         for h in horses: w.writerow([h.id,h.name,h.walk_trot_kmh or "", h.trot_canter_kmh or "", h.notes or ""])
         z.writestr("horses.csv", hout.getvalue())
-
         rout = io.StringIO(); w = csv.writer(rout)
         w.writerow(["id","date","title","horse_id","distance_km","avg_speed_kmh","max_speed_kmh","ascent_m","descent_m","gpx_path"])
         for r in rides:

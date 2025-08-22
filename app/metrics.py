@@ -48,7 +48,7 @@ def parse_gpx_points(gpx_text: str) -> List[Point]:
     return pts
 
 def compute_metrics(pts: List[Point], moving_threshold_mps: float = 1.0) -> Metrics:
-    if not pts:
+    if not pts:  # empty file guard
         return Metrics(0.0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, None, None, None, None, [], [])
     distance_m = 0.0
     total_time_s = 0

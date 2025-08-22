@@ -6,26 +6,6 @@
 </section>
 
 <section class="card">
-  <h3>Souhrn podle chodů (hranice {{ '%.1f' % thrA }} / {{ '%.1f' % thrB }} km/h)</h3>
-  <table>
-    <thead><tr><th>Chod</th><th>Km</th><th>Podíl</th></tr></thead>
-    {% set total = gaits.total_km or 0.0001 %}
-    <tbody>
-      <tr><td>Chůze</td><td>{{ '%.2f' % gaits.walk_km }}</td><td>{{ '%.0f' % (gaits.walk_km/total*100) }}%</td></tr>
-      <tr><td>Klus</td><td>{{ '%.2f' % gaits.trot_km }}</td><td>{{ '%.0f' % (gaits.trot_km/total*100) }}%</td></tr>
-      <tr><td>Cval</td><td>{{ '%.2f' % gaits.canter_km }}</td><td>{{ '%.0f' % (gaits.canter_km/total*100) }}%</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<section class="card">
-  <h3>Grafy</h3>
-  <div id="chart_km_month"></div>
-  <div id="chart_avg_month"></div>
-  <div id="chart_km_year"></div>
-</section>
-
-<section class="card">
   <h3>Top jízdy</h3>
   <div class="grid">
     <div class="row"><h4>Nejdelší</h4>
@@ -41,7 +21,14 @@
 </section>
 
 <section class="card">
-  <h3>Souhrny (měsíční/týdenní/roční)</h3>
+  <h3>Grafy (jen pro tohoto koně)</h3>
+  <div id="chart_km_month"></div>
+  <div id="chart_avg_month"></div>
+  <div id="chart_km_year"></div>
+</section>
+
+<section class="card">
+  <h3>Souhrny</h3>
   <div class="grid">
     <div class="row">
       <h4>Měsíční</h4>
