@@ -27,8 +27,8 @@
   </div>
   <div class="card">
     <h3>Rychlost</h3>
-    <div id="g_avg"></div>
-    <div id="g_max"></div>
+    <div id="g_avg" style="height:140px"></div>
+    <div id="g_max" style="height:140px"></div>
     <div class="muted">Prahy: {{ walk_trot }} / {{ trot_canter }} km/h</div>
     <div style="margin-top:10px">
       <div>Chůze</div><div class="bar-track"><div class="bar-fill walk" style="width: {{ gait.walk.pct }}%"></div></div>
@@ -64,8 +64,8 @@ function gauge(id, value, title){
   Plotly.newPlot(id, [{
     type:'indicator', mode:'gauge+number', value:value,
     gauge:{axis:{range:[0, Math.max(30, Math.ceil((value||0)*1.2))]}, bar:{color:'#2d7ef7'}},
-    number:{suffix:' km/h'}, title:{text:title}
-  }], {margin:{t:10,b:0,l:10,r:10}, height:220});
+    number:{suffix:' km/h', font:{size:26}}, title:{text:title, font:{size:14}}
+  }], {margin:{t:10,b:0,l:10,r:10}, height:140, displayModeBar:false});
 }
 gauge('g_avg', avgKmh, 'Průměrná rychlost');
 gauge('g_max', maxKmh, 'Maximální rychlost');
@@ -79,8 +79,8 @@ if (coords.length){
 function col(v){ if(v>=35) return '#c82333'; if(v>=30) return '#ff6f3c'; if(v>=20) return '#ffcc00'; if(v>=10) return '#9ad34b'; return '#3bbb3b'; }
 for (const s of segs){ L.polyline([[s.lat1,s.lon1],[s.lat2,s.lon2]], {color:col(s.v), weight:5, opacity:.9}).addTo(map); }
 
-Plotly.newPlot('chart_speed', [{x: speed.map(p=>p.t), y: speed.map(p=>p.v), type:'scatter', mode:'lines'}], {margin:{t:30}, title:'Rychlost (km/h)'});
-Plotly.newPlot('chart_elev', [{x: elev.map(p=>p.d), y: elev.map(p=>p.e), type:'scatter', mode:'lines'}], {margin:{t:30}, title:'Výškový profil (km / m)'});
+Plotly.newPlot('chart_speed', [{x: speed.map(p=>p.t), y: speed.map(p=>p.v), type:'scatter', mode:'lines'}], {margin:{t:30}, title:'Rychlost (km/h)', displayModeBar:false});
+Plotly.newPlot('chart_elev', [{x: elev.map(p=>p.d), y: elev.map(p=>p.e), type:'scatter', mode:'lines'}], {margin:{t:30}, title:'Výškový profil (km / m)', displayModeBar:false});
 </script>
 {% endif %}
 {% endblock %}

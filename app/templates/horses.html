@@ -15,7 +15,7 @@
       <tbody>
         {% for h in horses %}
         <tr>
-          <td>{{ h.name }}</td>
+          <td><a href="/horse/{{ h.id }}">{{ h.name }}</a></td>
           <td>{{ h.notes or '—' }}</td>
           <td>
             <form class="inline" action="/horse/{{ h.id }}/update" method="post">

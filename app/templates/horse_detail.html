@@ -1,61 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h2>Kůň: {{ horse.name }}</h2>
-  <p><a class="button" href="/export/horse/{{ horse.id }}.csv">Export CSV</a></p>
+  <h2>{{ horse.name }}</h2>
+  <div class="muted">Prahy: {{ horse.walk_trot_kmh or 7.0 }} / {{ horse.trot_canter_kmh or 13.0 }} km/h</div>
 </section>
 
 <section class="card">
-  <h3>Top jízdy</h3>
-  <div class="grid">
-    <div class="row"><h4>Nejdelší</h4>
-      <ol>{% for r in top_long %}<li>{{ r.ride_date }} – {{ '%.2f' % r.distance_km }} km (<a href="/ride/{{ r.id }}">detail</a>)</li>{% endfor %}</ol>
+  <form class="grid2" method="get">
+    <input type="date" name="from" value="{{ q_from or '' }}">
+    <input type="date" name="to" value="{{ q_to or '' }}">
+    <button>Filtrovat</button>
+  </form>
+</section>
+
+<section class="grid-2">
+  <div class="card">
+    <h3>Přehled</h3>
+    <div class="grid2">
+      <div><div class="muted">Jízd</div><div><b>{{ stats.count }}</b></div></div>
+      <div><div class="muted">Km celkem</div><div><b>{{ '%.2f' % stats.km }}</b></div></div>
+      <div><div class="muted">Ø rychlost</div><div><b>{{ '%.2f' % stats.avg }}</b></div></div>
+      <div><div class="muted">Max rychlost</div><div><b>{{ '%.2f' % stats.max }}</b></div></div>
     </div>
-    <div class="row"><h4>Nejrychlejší (max)</h4>
-      <ol>{% for r in top_fast %}<li>{{ r.ride_date }} – {{ '%.2f' % r.max_speed_kmh }} km/h (<a href="/ride/{{ r.id }}">detail</a>)</li>{% endfor %}</ol>
-    </div>
-    <div class="row"><h4>Největší převýšení</h4>
-      <ol>{% for r in top_climb %}<li>{{ r.ride_date }} – ↑ {{ '%.0f' % r.ascent_m }} m (<a href="/ride/{{ r.id }}">detail</a>)</li>{% endfor %}</ol>
-    </div>
+  </div>
+  <div class="card">
+    <h3>Měsíce / Roky</h3>
+    <div id="chart_months"></div>
   </div>
 </section>
 
 <section class="card">
-  <h3>Grafy (jen pro tohoto koně)</h3>
-  <div id="chart_km_month"></div>
-  <div id="chart_avg_month"></div>
-  <div id="chart_km_year"></div>
-</section>
-
-<section class="card">
-  <h3>Souhrny</h3>
-  <div class="grid">
-    <div class="row">
-      <h4>Měsíční</h4>
-      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
-      <tbody>{% for m in monthly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-    </div>
-    <div class="row">
-      <h4>Týdenní</h4>
-      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
-      <tbody>{% for m in weekly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-    </div>
-    <div class="row">
-      <h4>Roční</h4>
-      <table><thead><tr><th>Období</th><th>Jízd</th><th>Km</th><th>Ø km/h</th></tr></thead>
-      <tbody>{% for m in yearly %}<tr><td>{{ m.period }}</td><td>{{ m.rides }}</td><td>{{ '%.2f' % m.km }}</td><td>{{ '%.2f' % m.avg_kmh }}</td></tr>{% endfor %}</tbody></table>
-    </div>
+  <h3>Jízdy</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Datum</th><th>Název</th><th>Km</th><th>Ø</th><th>Max</th></tr></thead>
+      <tbody>
+        {% for r in rides %}
+        <tr>
+          <td>{{ r.ride_date }}</td>
+          <td><a href="/ride/{{ r.id }}">{{ r.title or ('Jízda #' ~ r.id) }}</a></td>
+          <td>{{ '%.2f' % r.distance_km }}</td>
+          <td>{{ '%.2f' % r.avg_speed_kmh }}</td>
+          <td>{{ '%.2f' % r.max_speed_kmh }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </section>
 
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script>
-const kmMonth = {{ km_month | tojson }};
-const kmYear = {{ km_year | tojson }};
-const avgMonth = {{ avg_month | tojson }};
-
-Plotly.newPlot('chart_km_month',[{x: kmMonth.map(r=>r.period), y: kmMonth.map(r=>r.km), type:'bar'}],{title:'Kilometry za měsíc', margin:{t:30}});
-Plotly.newPlot('chart_avg_month',[{x: avgMonth.map(r=>r.period), y: avgMonth.map(r=>r.avg), type:'scatter', mode:'lines+markers'}],{title:'Průměrná rychlost za měsíc', margin:{t:30}});
-Plotly.newPlot('chart_km_year',[{x: kmYear.map(r=>r.period), y: kmYear.map(r=>r.km), type:'bar'}],{title:'Kilometry za rok', margin:{t:30}});
+const months = {{ month_series | safe }};
+Plotly.newPlot('chart_months', [{
+  x: months.map(m=>m.label),
+  y: months.map(m=>m.km),
+  type: 'bar'
+}], {title:'Najeté km podle měsíců', margin:{t:30}, displayModeBar:false});
 </script>
 {% endblock %}
