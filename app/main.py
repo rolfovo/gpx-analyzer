@@ -7,7 +7,7 @@ from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from pathlib import Path
 from datetime import date, datetime
-import uuid, json, io, csv, zipfile, requests
+import uuid, json, io, zipfile, requests, os
 
 from .db import init_db, get_session
 from .models import Horse, Ride
@@ -57,33 +57,18 @@ async def upload(file: UploadFile, horse_name: str = Form(default=""), ride_titl
         s.add(r); s.commit(); s.refresh(r)
         return RedirectResponse(f"/ride/{r.id}", status_code=303)
 
-# === Ride detail (unchanged except template shrinks gauges) kept in project ===
-
-@app.get("/horse/{horse_id}", response_class=HTMLResponse)
-def horse_detail(request: Request, horse_id: int, from_: str | None = None, to: str | None = None):
-    q_from = request.query_params.get("from")
-    q_to = request.query_params.get("to")
+@app.post("/ride/{ride_id}/delete")
+def delete_ride(ride_id: int):
     with get_session() as s:
-        h = s.get(Horse, horse_id)
-        if not h: raise HTTPException(404, "Kůň nenalezen")
-        stmt = select(Ride).where(Ride.horse_id==horse_id)
-        if q_from: stmt = stmt.where(Ride.ride_date >= date.fromisoformat(q_from))
-        if q_to: stmt = stmt.where(Ride.ride_date <= date.fromisoformat(q_to))
-        rides = s.exec(stmt.order_by(Ride.ride_date.desc())).all()
-    # totals
-    km = sum(r.distance_km for r in rides) if rides else 0.0
-    count = len(rides)
-    avg = (sum(r.avg_speed_kmh for r in rides) / count) if count else 0.0
-    mx = max((r.max_speed_kmh for r in rides), default=0.0)
-    # months series
-    from collections import defaultdict
-    months = defaultdict(float)
-    for r in rides:
-        key = f"{r.ride_date.year}-{r.ride_date.month:02d}"
-        months[key] += float(r.distance_km)
-    month_series = [{"label": k, "km": round(v,2)} for k,v in sorted(months.items())]
-    return templates.TemplateResponse("horse_detail.html", {
-        "request": request, "horse": h, "rides": rides,
-        "stats": {"km": round(km,2), "count": count, "avg": round(avg,2), "max": round(mx,2)},
-        "month_series": json.dumps(month_series), "q_from": q_from, "q_to": q_to
-    })
+        r = s.get(Ride, ride_id)
+        if not r:
+            raise HTTPException(404, "Jízda nenalezena")
+        # smazat soubor GPX (nejspíš na /data/gpx)
+        try:
+            p = Path(r.gpx_path)
+            if p.exists():
+                p.unlink()
+        except Exception:
+            pass
+        s.delete(r); s.commit()
+    return RedirectResponse("/", status_code=303)

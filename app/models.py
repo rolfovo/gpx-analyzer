@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 from sqlmodel import SQLModel, Field, Relationship
 
 class Horse(SQLModel, table=True):
@@ -16,6 +16,8 @@ class Ride(SQLModel, table=True):
     ride_date: date
     horse_id: Optional[int] = Field(default=None, foreign_key="horse.id")
     horse: Optional[Horse] = Relationship(back_populates='rides')
+
+    # --- core metrics ---
     distance_km: float = 0.0
     total_time_s: int = 0
     avg_speed_kmh: float = 0.0
@@ -24,4 +26,7 @@ class Ride(SQLModel, table=True):
     descent_m: float = 0.0
     min_elev_m: Optional[float] = None
     max_elev_m: Optional[float] = None
+
+    # file and timestamps
     gpx_path: str
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)

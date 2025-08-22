@@ -4,7 +4,10 @@
   <h2>Nahrát GPX</h2>
   <form class="grid2" action="/upload" method="post" enctype="multipart/form-data">
     <input type="file" name="file" accept=".gpx" required>
-    <input type="text" name="horse_name" placeholder="Kůň (volitelné)">
+    <input type="text" name="horse_name" placeholder="Kůň (volitelné)" list="horse-list">
+    <datalist id="horse-list">
+      {% for h in horses %}<option value="{{ h.name }}">{% endfor %}
+    </datalist>
     <input type="text" name="ride_title" placeholder="Název jízdy (volitelné)">
     <input type="date" name="ride_date">
     <button>Analyzovat & uložit</button>
@@ -24,7 +27,11 @@
           <td>{{ '%.2f' % r.distance_km }}</td>
           <td>{{ '%.2f' % r.avg_speed_kmh }}</td>
           <td>{{ '%.2f' % r.max_speed_kmh }}</td>
-          <td><a href="/gpx/{{ r.id }}">GPX</a></td>
+          <td>
+            <form action="/ride/{{ r.id }}/delete" method="post" onsubmit="return confirm('Opravdu smazat tuto jízdu?');">
+              <button class="danger">🗑</button>
+            </form>
+          </td>
         </tr>
         {% else %}
         <tr><td colspan="7" class="muted">Zatím žádné jízdy.</td></tr>
