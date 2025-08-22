@@ -1,0 +1,33 @@
+
+# --- PATCH for app/main.py ---
+# Replace your update_horse route with this safe-parsing version.
+from fastapi import Form, HTTPException
+from .db import get_session
+from .models import Horse, Ride
+from sqlmodel import select
+
+def _to_float_or_none(val: str) -> float | None:
+    if val is None:
+        return None
+    s = str(val).strip().replace(",", ".")
+    return float(s) if s else None
+
+@app.post("/horse/{horse_id}/update")
+def update_horse(
+    horse_id: int,
+    name: str = Form(...),
+    notes: str = Form(default=""),
+    walk_trot_kmh: str = Form(default=""),
+    trot_canter_kmh: str = Form(default=""),
+):
+    with get_session() as s:
+        h = s.get(Horse, horse_id)
+        if not h:
+            raise HTTPException(404, "Kůň nenalezen")
+        h.name = name.strip()
+        h.notes = notes.strip() or None
+        h.walk_trot_kmh = _to_float_or_none(walk_trot_kmh)
+        h.trot_canter_kmh = _to_float_or_none(trot_canter_kmh)
+        s.add(h)
+        s.commit()
+    return RedirectResponse("/horses", status_code=303)
