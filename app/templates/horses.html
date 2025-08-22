@@ -20,6 +20,7 @@
       <tr>
         <td colspan="5">
           <div class="grid4 row">
+            <!-- UPDATE -->
             <form action="/horse/{{ h.id }}/update" method="post" class="grid4 row">
               <input type="text" name="name" value="{{ h.name }}" required>
               <input type="text" name="notes" value="{{ h.notes or '' }}" placeholder="Poznámka">
@@ -35,7 +36,11 @@
                 <span class="muted">{{ h.rides|length }} jízd</span>
               </div>
             </form>
-            <form action="/horse/{{ h.id }}/delete" method="post" onsubmit="return confirm('Smazat koně a odpojit jeho jízdy?')" style="display:flex;align-items:center;gap:8px;">
+
+            <!-- DELETE (samostatný form) -->
+            <form action="/horse/{{ h.id }}/delete" method="post"
+                  onsubmit="return confirm('Smazat koně a odpojit jeho jízdy?')"
+                  style="display:flex;align-items:center;gap:8px;">
               <button class="button danger" type="submit">🗑 Smazat</button>
             </form>
           </div>
