@@ -66,7 +66,6 @@ async def upload(file: UploadFile, horse_name: str = Form(default=""), ride_titl
         min_elev_m = m.min_elev_m
         max_elev_m = m.max_elev_m
 
-        # NEW: avg_moving_speed_kmh (NOT NULL in DB)
         if moving_time_s > 0:
             avg_moving_speed_kmh = round(distance_km / (moving_time_s / 3600.0), 2)
         else:
@@ -80,7 +79,7 @@ async def upload(file: UploadFile, horse_name: str = Form(default=""), ride_titl
             total_time_s=total_time_s,
             moving_time_s=moving_time_s,
             avg_speed_kmh=avg_speed_kmh,
-            avg_moving_speed_kmh=avg_moving_speed_kmh,  # <- HERE
+            avg_moving_speed_kmh=avg_moving_speed_kmh,
             max_speed_kmh=max_speed_kmh,
             ascent_m=ascent_m,
             descent_m=descent_m,
@@ -108,7 +107,6 @@ def ride_detail(request: Request, ride_id: int):
         r = s.exec(select(Ride).where(Ride.id==ride_id).options(selectinload(Ride.horse))).first()
         if not r: raise HTTPException(404, "Jízda nenalezena")
         horse = r.horse
-    # připrav data pro mapu/grafy
     p = Path(r.gpx_path)
     missing_gpx = not p.exists()
     coords_json = "[]"; segments_json="[]"; speed_json="[]"; elev_json="[]"
@@ -117,10 +115,10 @@ def ride_detail(request: Request, ride_id: int):
     gait = {"walk":{"km":0,"pct":0},"trot":{"km":0,"pct":0},"canter":{"km":0,"pct":0}}
 
     if not missing_gpx:
-        from .metrics import parse_gpx_points, compute_metrics, hav_m
         import gpxpy
         text = p.read_text(encoding="utf-8", errors="ignore")
         g = gpxpy.parse(text)
+        from .metrics import hav_m, parse_gpx_points, compute_metrics
 
         coords = []
         segs = []
@@ -135,8 +133,6 @@ def ride_detail(request: Request, ride_id: int):
                     a, b = ps[i-1], ps[i]
                     dt = (b.time - a.time).total_seconds() if (a.time and b.time) else 1.0
                     if dt <= 0: dt = 1.0
-                    # jednoduchá vzdálenost
-                    from .metrics import hav_m
                     d = hav_m(a.latitude, a.longitude, b.latitude, b.longitude)
                     v = (d / dt) * 3.6
                     segs.append({"lat1": a.latitude, "lon1": a.longitude, "lat2": b.latitude, "lon2": b.longitude, "v": v})
@@ -153,7 +149,6 @@ def ride_detail(request: Request, ride_id: int):
         coords_json = json.dumps([[c[0], c[1]] for c in coords])
         segments_json = json.dumps(segs)
 
-        # rychlost a profil znovu spočítáme
         pts = parse_gpx_points(text)
         m = compute_metrics(pts)
         sp = [{"t": (t.isoformat() if t else None), "v": v*3.6} for t,v in m.speed_series]
@@ -187,7 +182,9 @@ def delete_ride(ride_id: int):
 @app.get("/horses", response_class=HTMLResponse)
 def horses_page(request: Request):
     with get_session() as s:
-        horses = s.exec(select(Horse).order_by(Horse.name)).all()
+        horses = s.exec(
+            select(Horse).options(selectinload(Horse.rides)).order_by(Horse.name)
+        ).all()
     return templates.TemplateResponse("horses.html", {"request": request, "horses": horses})
 
 @app.post("/horses/new")
@@ -215,7 +212,6 @@ def horse_delete(horse_id: int):
     with get_session() as s:
         h = s.get(Horse, horse_id)
         if not h: raise HTTPException(404, "Kůň nenalezen")
-        # odpojit jízdy, nesmazat
         rides = s.exec(select(Ride).where(Ride.horse_id==horse_id)).all()
         for r in rides:
             r.horse_id = None; s.add(r)
@@ -255,13 +251,11 @@ def horse_detail(request: Request, horse_id: int):
 def backup_zip():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        # data json export
         with get_session() as s:
             horses = s.exec(select(Horse)).all()
             rides = s.exec(select(Ride)).all()
             z.writestr("horses.json", json.dumps([h.dict() for h in horses], ensure_ascii=False))
             z.writestr("rides.json", json.dumps([r.dict() for r in rides], ensure_ascii=False))
-        # gpx files
         if DATA_DIR.exists():
             for p in DATA_DIR.glob("*.gpx"):
                 z.write(p, f"gpx/{p.name}")
