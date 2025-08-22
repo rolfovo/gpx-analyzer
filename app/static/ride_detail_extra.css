@@ -1,0 +1,13 @@
+.ride-detail {max-width:900px;margin:auto;}
+.stats-grid {display:flex;gap:1rem;flex-wrap:wrap;}
+.card {background:#fff;padding:1rem;margin:1rem 0;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.1);}
+.gauge-container {display:flex;justify-content:space-around;flex-wrap:wrap;}
+.bar {background:#eee;border-radius:6px;height:10px;margin:4px 0;}
+.bar-inner {height:10px;border-radius:6px;}
+.walk {background:green;}
+.trot {background:orange;}
+.canter {background:red;}
+.flat {background:#4caf50;}
+.uphill {background:#2196f3;}
+.downhill {background:#9c27b0;}
+@media(max-width:600px){.stats-grid{flex-direction:column;}}

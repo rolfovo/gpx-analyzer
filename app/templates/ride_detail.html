@@ -1,56 +1,97 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="card">
-  <h2>{{ ride.title or 'Jízda #' ~ ride.id }}</h2>
-  <p>{% if horse %}Kůň: <a href="/horse/{{ horse.id }}">{{ horse.name }}</a>{% endif %}</p>
-  <ul class="kv">
-    <li><span>Datum</span><strong>{{ ride.ride_date }}</strong></li>
-    <li><span>Vzdálenost</span><strong>{{ '%.2f' % ride.distance_km }} km</strong></li>
-    <li><span>Ø rychlost</span><strong>{{ '%.2f' % ride.avg_speed_kmh }} km/h</strong></li>
-    <li><span>Max rychlost</span><strong>{{ '%.2f' % ride.max_speed_kmh }} km/h</strong></li>
-  </ul>
-  <div style="margin-top:8px;display:flex;gap:8px;">
-    <a class="button" href="/gpx/{{ ride.id }}">Stáhnout GPX</a>
-    <form action="/ride/{{ ride.id }}/delete" method="post"
-          onsubmit="return confirm('Opravdu smazat tuto jízdu?')">
-      <button class="button danger" type="submit">🗑 Smazat jízdu</button>
-    </form>
+<div class="ride-detail">
+  <h2>📊 Detail jízdy</h2>
+
+  <div class="stats-grid">
+    <div class="card">
+      <h3>Celková doba trvání</h3>
+      <p>{{ total_time }}</p>
+    </div>
+    <div class="card">
+      <h3>Celková vzdálenost</h3>
+      <p>{{ total_distance_km }} km</p>
+    </div>
   </div>
-</section>
 
-{% if missing_gpx %}
-<section class="card">
-  <div class="alert">⚠️ GPX soubor k této jízdě není k dispozici. Nahrajte jej znovu, aby šly zobrazit mapa a grafy.</div>
-</section>
-{% else %}
-<section class="card">
-  <h3>Mapa</h3>
-  <div id="map" style="height:400px;"></div>
-</section>
+  <div class="card gauges">
+    <h3>Rychlost</h3>
+    <div class="gauge-container">
+      <div class="gauge">
+        <canvas id="avgSpeedGauge"></canvas>
+        <p>Průměrná rychlost<br>{{ avg_speed }} km/h</p>
+      </div>
+      <div class="gauge">
+        <canvas id="maxSpeedGauge"></canvas>
+        <p>Maximální rychlost<br>{{ max_speed }} km/h</p>
+      </div>
+    </div>
+  </div>
 
-<section class="card">
-  <h3>Grafy</h3>
-  <div id="chart_speed"></div>
-  <div id="chart_elev"></div>
-</section>
+  <div class="card">
+    <h3>Vzdálenost podle chodu</h3>
+    <div class="bar-group">
+      <p>Chůze <span>{{ walk_km }} km – {{ walk_pct }}%</span></p>
+      <div class="bar"><div class="bar-inner walk" style="width: {{ walk_pct }}%"></div></div>
+      <p>Klus <span>{{ trot_km }} km – {{ trot_pct }}%</span></p>
+      <div class="bar"><div class="bar-inner trot" style="width: {{ trot_pct }}%"></div></div>
+      <p>Cval <span>{{ canter_km }} km – {{ canter_pct }}%</span></p>
+      <div class="bar"><div class="bar-inner canter" style="width: {{ canter_pct }}%"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Analýza sklonu</h3>
+    <div class="bar-group">
+      <p>Rovina <span>{{ flat_km }} km – {{ flat_pct }}%</span></p>
+      <div class="bar"><div class="bar-inner flat" style="width: {{ flat_pct }}%"></div></div>
+      <p>Do kopce <span>{{ uphill_km }} km – {{ uphill_pct }}%</span></p>
+      <div class="bar"><div class="bar-inner uphill" style="width: {{ uphill_pct }}%"></div></div>
+      <p>Z kopce <span>{{ downhill_km }} km – {{ downhill_pct }}%</span></p>
+      <div class="bar"><div class="bar-inner downhill" style="width: {{ downhill_pct }}%"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Mapa trasy</h3>
+    <div id="map" style="height:400px;"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <script>
-const coords = {{ coords | tojson }};
-const speed = {{ speed_ts | tojson }};
-const elev = {{ elev_profile | tojson }};
+  // Leaflet mapa
+  var map = L.map('map').setView([{{ center_lat }}, {{ center_lon }}], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-const map = L.map('map');
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OSM'}).addTo(map);
-if (coords.length){
-  const latlngs = coords.map(c => [c[0], c[1]]);
-  const line = L.polyline(latlngs, {weight:4}).addTo(map);
-  map.fitBounds(line.getBounds());
-}
+  var coords = {{ coords|safe }};
+  var speeds = {{ speeds|safe }};
+  var segments = [];
+  for (var i=1; i<coords.length; i++) {
+    var speed = speeds[i] || 0;
+    var color = speed < {{ walk_trot_kmh }} ? 'green' : 
+                (speed < {{ trot_canter_kmh }} ? 'orange' : 'red');
+    segments.push(L.polyline([coords[i-1], coords[i]], {color: color, weight: 4}).addTo(map));
+  }
 
-Plotly.newPlot('chart_speed',[{x: speed.map(p=>p.t), y: speed.map(p=>p.v), type:'scatter', mode:'lines'}],
-  {title:'Rychlost v čase (km/h)', margin:{t:30}});
-Plotly.newPlot('chart_elev',[{x: elev.map(p=>p.d), y: elev.map(p=>p.e), type:'scatter', mode:'lines'}],
-  {title:'Profil trati (km / m)', xaxis:{title:'Km'}, yaxis:{title:'m n. m.'}, margin:{t:30}});
+  // Gauge charts
+  function renderGauge(id, value, max, color) {
+    new Chart(document.getElementById(id), {
+      type: 'doughnut',
+      data: {
+        datasets: [{
+          data: [value, max-value],
+          backgroundColor: [color, '#eee'],
+          borderWidth: 0
+        }]
+      },
+      options: {circumference: 180, rotation: 270, cutout: '70%', plugins: {legend:{display:false}}}
+    });
+  }
+  renderGauge('avgSpeedGauge', {{ avg_speed }}, 30, 'green');
+  renderGauge('maxSpeedGauge', {{ max_speed }}, 40, 'orange');
 </script>
-{% endif %}
 {% endblock %}
