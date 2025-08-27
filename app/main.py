@@ -254,10 +254,15 @@ def horse_detail(request: Request, horse_id: int):
             select(Ride).where(Ride.horse_id == horse_id).order_by(Ride.ride_date.desc())
         ).all()
 
+    stats = {
+        "count": len(rides),
+        "km": sum(r.distance_km for r in rides),
+        "avg": (sum(r.avg_speed_kmh for r in rides) / len(rides)) if rides else 0,
+        "max": max((r.max_speed_kmh for r in rides), default=0),
+    }
+
     monthly_rows, weekly_rows, yearly_rows = accum_periods(rides)
-    km_month = [{"period": m["period"], "km": m["km"]} for m in monthly_rows]
-    km_year  = [{"period": y["period"], "km": y["km"]} for y in yearly_rows]
-    avg_month = [{"period": m["period"], "avg": m["avg_kmh"]} for m in monthly_rows]
+    month_series = [{"label": m["period"], "km": m["km"]} for m in monthly_rows]
 
     top_long = sorted(rides, key=lambda r: r.distance_km, reverse=True)[:3]
     top_fast = sorted(rides, key=lambda r: r.max_speed_kmh, reverse=True)[:3]
@@ -266,8 +271,9 @@ def horse_detail(request: Request, horse_id: int):
     return templates.TemplateResponse("horse_detail.html", {
         "request": request, "horse": horse, "rides": rides,
         "monthly": monthly_rows, "weekly": weekly_rows, "yearly": yearly_rows,
-        "km_month": km_month, "km_year": km_year, "avg_month": avg_month,
-        "top_long": top_long, "top_fast": top_fast, "top_climb": top_climb
+        "month_series": month_series, "stats": stats,
+        "top_long": top_long, "top_fast": top_fast, "top_climb": top_climb,
+        "q_from": None, "q_to": None,
     })
 
 # ---- Horses management ----
