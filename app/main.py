@@ -23,11 +23,9 @@ except Exception:
     boto3 = None
     Config = None
 
-import gpxpy
-
 from .db import init_db, get_session
 from .models import Horse, Ride
-from .metrics import parse_gpx_points, compute_metrics
+from .metrics import parse_gpx_points, compute_metrics, hav_m
 
 # ---------------- Persistent storage paths ----------------
 app = FastAPI(title="GPX Analyzer – Horse Dashboard")
@@ -189,22 +187,41 @@ def ride_detail(request: Request, ride_id: int):
         else:
             missing_gpx = True
 
-    speed_ts, elev_profile, coords = [], [], []
+    speed_ts, elev_profile, segments = [], [], []
     if not missing_gpx and text:
         pts = parse_gpx_points(text)
         metrics = compute_metrics(pts)
         speed_ts = [{"t": (t.isoformat() if t else None), "v": v*3.6} for t, v in metrics.speed_series]
         elev_profile = [{"d": d/1000.0, "e": e} for d, e in metrics.elev_profile]
-        gpx = gpxpy.parse(text)
-        for trk in gpx.tracks:
-            for seg in trk.segments:
-                for pnt in seg.points:
-                    coords.append([pnt.latitude, pnt.longitude, pnt.elevation or 0.0])
+
+        walk_thr = ride.horse.walk_trot_kmh if ride.horse and ride.horse.walk_trot_kmh is not None else 7.0
+        trot_thr = ride.horse.trot_canter_kmh if ride.horse and ride.horse.trot_canter_kmh is not None else 13.0
+
+        def color_for(v_kmh: float) -> str:
+            if v_kmh < walk_thr:
+                return "#00a000"
+            if v_kmh < trot_thr:
+                return "#0000ff"
+            return "#ff0000"
+
+        for i in range(1, len(pts)):
+            t1, lat1, lon1, _ = pts[i-1]
+            t2, lat2, lon2, _ = pts[i]
+            dt = (t2 - t1).total_seconds() if (t1 and t2) else 1.0
+            if dt <= 0:
+                dt = 1.0
+            d = hav_m(lat1, lon1, lat2, lon2)
+            v_kmh = (d / dt) * 3.6
+            color = color_for(v_kmh)
+            if not segments or segments[-1]["color"] != color:
+                segments.append({"color": color, "coords": [[lat1, lon1], [lat2, lon2]]})
+            else:
+                segments[-1]["coords"].append([lat2, lon2])
 
     return templates.TemplateResponse(
         "ride_detail.html",
         {"request": request, "ride": ride, "horse": ride.horse, "speed_ts": speed_ts,
-         "elev_profile": elev_profile, "coords": coords, "missing_gpx": missing_gpx}
+         "elev_profile": elev_profile, "segments": segments, "missing_gpx": missing_gpx}
     )
 
 @app.post("/ride/{ride_id}/delete")
