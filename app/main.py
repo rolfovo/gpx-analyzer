@@ -263,6 +263,8 @@ def horse_detail(request: Request, horse_id: int):
 
     monthly_rows, weekly_rows, yearly_rows = accum_periods(rides)
     month_series = [{"label": m["period"], "km": m["km"]} for m in monthly_rows]
+    week_series = [{"label": w["period"], "km": w["km"]} for w in weekly_rows]
+    year_series = [{"label": y["period"], "km": y["km"]} for y in yearly_rows]
 
     top_long = sorted(rides, key=lambda r: r.distance_km, reverse=True)[:3]
     top_fast = sorted(rides, key=lambda r: r.max_speed_kmh, reverse=True)[:3]
@@ -271,7 +273,8 @@ def horse_detail(request: Request, horse_id: int):
     return templates.TemplateResponse("horse_detail.html", {
         "request": request, "horse": horse, "rides": rides,
         "monthly": monthly_rows, "weekly": weekly_rows, "yearly": yearly_rows,
-        "month_series": month_series, "stats": stats,
+        "month_series": month_series, "week_series": week_series, "year_series": year_series,
+        "stats": stats,
         "top_long": top_long, "top_fast": top_fast, "top_climb": top_climb,
         "q_from": None, "q_to": None,
     })

@@ -22,10 +22,14 @@
       <div><div class="muted">Ø rychlost</div><div><b>{{ '%.2f' % stats.avg }}</b></div></div>
       <div><div class="muted">Max rychlost</div><div><b>{{ '%.2f' % stats.max }}</b></div></div>
     </div>
+    <div id="gauge_avg" style="height:150px;"></div>
+    <div id="gauge_max" style="height:150px;"></div>
   </div>
   <div class="card">
-    <h3>Měsíce / Roky</h3>
+    <h3>Měsíce / Týdny / Roky</h3>
     <div id="chart_months"></div>
+    <div id="chart_weeks"></div>
+    <div id="chart_years"></div>
   </div>
 </section>
 
@@ -56,5 +60,35 @@ Plotly.newPlot('chart_months', [{
   y: months.map(m=>m.km),
   type: 'bar'
 }], {title:'Najeté km podle měsíců', margin:{t:30}, displayModeBar:false});
+
+const weeks = {{ week_series | safe }};
+Plotly.newPlot('chart_weeks', [{
+  x: weeks.map(m=>m.label),
+  y: weeks.map(m=>m.km),
+  type: 'bar'
+}], {title:'Najeté km podle týdnů', margin:{t:30}, displayModeBar:false});
+
+const years = {{ year_series | safe }};
+Plotly.newPlot('chart_years', [{
+  x: years.map(m=>m.label),
+  y: years.map(m=>m.km),
+  type: 'bar'
+}], {title:'Najeté km podle let', margin:{t:30}, displayModeBar:false});
+
+Plotly.newPlot('gauge_avg', [{
+  type: 'indicator',
+  mode: 'gauge+number',
+  value: {{ '%.2f' % stats.avg }},
+  title: {text: 'Ø rychlost'},
+  gauge: {axis: {range: [0, 50]}}
+}], {margin:{t:30}, displayModeBar:false});
+
+Plotly.newPlot('gauge_max', [{
+  type: 'indicator',
+  mode: 'gauge+number',
+  value: {{ '%.2f' % stats.max }},
+  title: {text: 'Max rychlost'},
+  gauge: {axis: {range: [0, 50]}}
+}], {margin:{t:30}, displayModeBar:false});
 </script>
 {% endblock %}
