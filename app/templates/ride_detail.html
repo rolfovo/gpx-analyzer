@@ -34,16 +34,16 @@
 </section>
 
 <script>
-const coords = {{ coords | tojson }};
+const segments = {{ segments | tojson }};
 const speed = {{ speed_ts | tojson }};
 const elev = {{ elev_profile | tojson }};
 
 const map = L.map('map');
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OSM'}).addTo(map);
-if (coords.length){
-  const latlngs = coords.map(c => [c[0], c[1]]);
-  const line = L.polyline(latlngs, {weight:4}).addTo(map);
-  map.fitBounds(line.getBounds());
+if (segments.length){
+  const lines = segments.map(seg => L.polyline(seg.coords, {weight:4, color:seg.color}).addTo(map));
+  const group = L.featureGroup(lines);
+  map.fitBounds(group.getBounds());
 }
 
 Plotly.newPlot('chart_speed',[{x: speed.map(p=>p.t), y: speed.map(p=>p.v), type:'scatter', mode:'lines'}],{title:'Rychlost v čase (km/h)', margin:{t:30}});
