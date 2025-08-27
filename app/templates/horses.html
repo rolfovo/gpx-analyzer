@@ -2,40 +2,45 @@
 {% block content %}
 <section class="card">
   <h2>Koně</h2>
-  <form class="grid2" action="/horses/new" method="post">
+  <form action="/horses/new" method="post" class="row grid2">
     <input type="text" name="name" placeholder="Jméno koně" required>
     <input type="text" name="notes" placeholder="Poznámka (volitelné)">
-    <button>➕ Přidat</button>
+    <button type="submit">➕ Přidat koně</button>
   </form>
 </section>
+
 <section class="card">
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Jméno</th><th>Poznámka</th><th>Prahy</th><th>Jízd</th><th>Akce</th></tr></thead>
-      <tbody>
-        {% for h in horses %}
-        <tr>
-          <td><a href="/horse/{{ h.id }}">{{ h.name }}</a></td>
-          <td>{{ h.notes or '—' }}</td>
-          <td>
-            <form class="inline" action="/horse/{{ h.id }}/update" method="post">
-              <input type="hidden" name="name" value="{{ h.name }}">
-              <input type="hidden" name="notes" value="{{ h.notes or '' }}">
-              <input class="short" type="text" name="walk_trot_kmh" value="{{ h.walk_trot_kmh or '' }}" placeholder="7.0">
-              <input class="short" type="text" name="trot_canter_kmh" value="{{ h.trot_canter_kmh or '' }}" placeholder="13.0">
-              <button>💾</button>
-            </form>
-          </td>
-          <td>{{ h.rides|length }}</td>
-          <td>
-            <form class="inline" action="/horse/{{ h.id }}/delete" method="post" onsubmit="return confirm('Smazat a odpojit jízdy?')">
-              <button class="danger">🗑</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <h3>Seznam</h3>
+  <table>
+    <thead>
+      <tr><th>Jméno</th><th>Poznámka</th><th>Prahy (km/h)</th><th>Jízd</th><th>Akce</th></tr>
+    </thead>
+    <tbody>
+    {% for h in horses %}
+      <tr>
+        <td colspan="5">
+          <form action="/horse/{{ h.id }}/update" method="post" class="grid4 row">
+            <input type="text" name="name" value="{{ h.name }}" required>
+            <input type="text" name="notes" value="{{ h.notes or '' }}" placeholder="Poznámka">
+            <div>
+              <label>Krok→Klus</label>
+              <input type="number" step="0.1" name="walk_trot_kmh" value="{{ h.walk_trot_kmh or '' }}" style="max-width:7em">
+              <label style="margin-left:8px;">Klus→Cval</label>
+              <input type="number" step="0.1" name="trot_canter_kmh" value="{{ h.trot_canter_kmh or '' }}" style="max-width:7em">
+            </div>
+            <div class="actions">
+              <a class="button" href="/horse/{{ h.id }}">Detail</a>
+              <button type="submit">💾 Uložit</button>
+              <form action="/horse/{{ h.id }}/delete" method="post" style="display:inline" onsubmit="return confirm('Smazat koně a odpojit jeho jízdy?')">
+                <button class="button danger" type="submit">🗑 Smazat</button>
+              </form>
+              <span class="muted">{{ h.rides|length }} jízd</span>
+            </div>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
 </section>
 {% endblock %}
