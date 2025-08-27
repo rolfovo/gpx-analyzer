@@ -14,7 +14,9 @@ def hav_m(lat1, lon1, lat2, lon2):
 class Metrics:
     distance_m: float
     total_time_s: int
+    moving_time_s: int
     avg_speed_mps: float
+    avg_moving_speed_mps: float
     max_speed_mps: float
     ascent_m: float
     descent_m: float
@@ -38,8 +40,8 @@ def parse_gpx_points(text: str):
 
 def compute_metrics(pts) -> Metrics:
     if not pts:
-        return Metrics(0,0,0,0,0,0,None,None,None,[],[])
-    total_d=0; ascent=0; descent=0; max_v=0
+        return Metrics(0,0,0,0,0,0,0,None,None,None,[],[])
+    total_d=0; moving_d=0; moving_t=0; ascent=0; descent=0; max_v=0
     min_e=pts[0][3]; max_e=pts[0][3]
     start=pts[0][0]; end=pts[-1][0] if pts[-1][0] else start
     speed_series=[]; elev_profile=[]; acc_d=0
@@ -51,6 +53,9 @@ def compute_metrics(pts) -> Metrics:
         d = hav_m(lat1,lon1,lat2,lon2)
         total_d += d; acc_d += d
         v = d/dt; max_v=max(max_v,v)
+        if v > 1.0:
+            moving_d += d
+            moving_t += dt
         speed_series.append((t2,v))
         elev_profile.append((acc_d, e2))
         de = e2-e1
@@ -59,4 +64,5 @@ def compute_metrics(pts) -> Metrics:
         min_e=min(min_e,e2); max_e=max(max_e,e2)
     total_t = int((end-start).total_seconds()) if (start and end) else 0
     avg = (total_d/total_t) if total_t>0 else 0.0
-    return Metrics(total_d,total_t,avg,max_v,ascent,descent,min_e,max_e,start,speed_series,elev_profile)
+    avg_mv = (moving_d/moving_t) if moving_t>0 else 0.0
+    return Metrics(total_d,total_t,int(moving_t),avg,avg_mv,max_v,ascent,descent,min_e,max_e,start,speed_series,elev_profile)
