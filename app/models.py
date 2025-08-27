@@ -5,8 +5,9 @@ from sqlmodel import SQLModel, Field, Relationship
 class Horse(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    walk_trot_kmh: Optional[float] = None
-    trot_canter_kmh: Optional[float] = None
+    # Prahy mohou být nevyplněné -> None
+    walk_trot_kmh: Optional[float] = Field(default=None)
+    trot_canter_kmh: Optional[float] = Field(default=None)
     notes: Optional[str] = None
     rides: List['Ride'] = Relationship(back_populates='horse')
 
@@ -17,7 +18,7 @@ class Ride(SQLModel, table=True):
     horse_id: Optional[int] = Field(default=None, foreign_key="horse.id")
     horse: Optional[Horse] = Relationship(back_populates='rides')
 
-    # metrics (NOT NULL where DB expects it)
+    # metrics
     distance_km: float = 0.0
     total_time_s: int = 0
     moving_time_s: int = Field(default=0, nullable=False)
@@ -29,6 +30,5 @@ class Ride(SQLModel, table=True):
     min_elev_m: Optional[float] = None
     max_elev_m: Optional[float] = None
 
-    # file + timestamps
     gpx_path: str
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
