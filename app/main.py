@@ -138,6 +138,7 @@ async def upload_gpx(
             total_time_s=metrics.total_time_s,
             moving_time_s=metrics.moving_time_s,
             avg_speed_kmh=round(metrics.avg_speed_mps*3.6, 2),
+            # convert moving speed from m/s to km/h
             avg_moving_speed_kmh=round(metrics.avg_moving_speed_mps*3.6, 2),
             max_speed_kmh=round(metrics.max_speed_mps*3.6, 2),
             ascent_m=round(metrics.ascent_m, 1),
